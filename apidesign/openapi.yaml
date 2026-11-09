@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: forgeshiftparityscopes-1-0-0
+  version: 1.0.0
+  description: Operational baseline generated from observed Kong Konnect configuration.
+servers:
+- url: https://postman-echo.com
+paths: {}
+x-kong-source:
+  serviceId: 249a17d8-13be-45dd-b520-9395d14977cd
+  snapshotFingerprint: 07cea5136085320a7d1a760a482942009d20bec1206588859bbf39aee15301c0
+  controlPlaneId: edb363b5-777a-445c-a190-5ca0d53c0c12
+x-kong-unmapped-routes:
+- routeId: 40046dc1-db96-4c22-a8ae-b23bb658544b
+  routeName: forgeshiftparityscopes-1-0-0--wso2-unmatched
+  reasons:
+  - METHODLESS
+- routeId: 5e6d0ace-f5c8-491d-be06-cc6f2af47379
+  routeName: forgeshiftparityscopes-1-0-0--getheaders
+  reasons:
+  - REGEX_OR_UNSUPPORTED_PATH
+- routeId: a3f04299-fa8d-497d-8f77-3400885cd46f
+  routeName: forgeshiftparityscopes-1-0-0--postpost
+  reasons:
+  - REGEX_OR_UNSUPPORTED_PATH
+- routeId: b19aaf91-1df5-4052-903f-9c2c8fe65a98
+  routeName: forgeshiftparityscopes-1-0-0--getget
+  reasons:
+  - REGEX_OR_UNSUPPORTED_PATH
