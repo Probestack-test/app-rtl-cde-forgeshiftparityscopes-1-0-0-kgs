@@ -1,0 +1,759 @@
+_format_version: "3.0"
+_transform: true
+
+########################################################
+# SERVICES
+########################################################
+
+services:
+  - name: forgeshiftparityscopes-1-0-0
+    host: postman-echo.com
+    port: 443
+    protocol: https
+    retries: 5
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    enabled: true
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+    path: /
+    routes:
+      - name: forgeshiftparityscopes-1-0-0--wso2-unmatched
+        protocols:
+          - http
+          - https
+        paths:
+          - ~/forgeshift\-parity/scopes/1\.0\.0(?:/.*)?$
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 0
+        path_handling: v0
+        request_buffering: true
+        response_buffering: true
+        tags:
+          - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+          - migrated-by:forgeshift-wso2-migrator
+          - forgeshift-parity
+          - wso2-unmatched
+          - proxyx-proxy-id:PX-FCBA3C82E9FB
+      - name: forgeshiftparityscopes-1-0-0--getheaders
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - OPTIONS
+        paths:
+          - ~/forgeshift\-parity/scopes/1\.0\.0/headers(?<wso2_rest>/)?$
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 1022
+        path_handling: v0
+        request_buffering: true
+        response_buffering: true
+        tags:
+          - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+          - migrated-by:forgeshift-wso2-migrator
+          - forgeshift-parity
+          - wso2-resource:_headers
+          - wso2-verb:GET
+          - proxyx-proxy-id:PX-FCBA3C82E9FB
+      - name: forgeshiftparityscopes-1-0-0--postpost
+        protocols:
+          - http
+          - https
+        methods:
+          - POST
+          - OPTIONS
+        paths:
+          - ~/forgeshift\-parity/scopes/1\.0\.0/post(?<wso2_rest>/)?$
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 1021
+        path_handling: v0
+        request_buffering: true
+        response_buffering: true
+        tags:
+          - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+          - migrated-by:forgeshift-wso2-migrator
+          - forgeshift-parity
+          - wso2-resource:_post
+          - wso2-verb:POST
+          - proxyx-proxy-id:PX-FCBA3C82E9FB
+      - name: forgeshiftparityscopes-1-0-0--getget
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - OPTIONS
+        paths:
+          - ~/forgeshift\-parity/scopes/1\.0\.0/get(?<wso2_rest>/)?$
+        strip_path: false
+        preserve_host: false
+        https_redirect_status_code: 426
+        regex_priority: 1023
+        path_handling: v0
+        request_buffering: true
+        response_buffering: true
+        tags:
+          - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+          - migrated-by:forgeshift-wso2-migrator
+          - forgeshift-parity
+          - wso2-resource:_get
+          - wso2-verb:GET
+          - proxyx-proxy-id:PX-FCBA3C82E9FB
+
+########################################################
+# PLUGINS
+########################################################
+
+plugins:
+  - name: post-function
+    route: forgeshiftparityscopes-1-0-0--postpost
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 gateway behaviour (ForgeShift), after every other plugin. WSO2's gateway sends the backend no Via\n-- and no X-Forwarded-* header (Kong's come from these variables), and passes on the caller's own values\n-- of the headers Kong's auth plugins set.\nlocal FORWARDING = { \"upstream_via\", \"upstream_x_forwarded_for\", \"upstream_x_forwarded_proto\",\n  \"upstream_x_forwarded_host\", \"upstream_x_forwarded_port\", \"upstream_x_forwarded_path\",\n  \"upstream_x_forwarded_prefix\" }\n\nreturn function()\n  for _, name in ipairs(FORWARDING) do\n    -- A Kong without one of them keeps going.\n    pcall(function() ngx.var[name] = \"\" end)\n  end\n  local saved = kong.ctx.shared.fs_wso2_caller_headers\n  if saved then\n    for name, value in pairs(saved) do\n      if type(value) == \"table\" then\n        kong.service.request.set_header(name, value[1])\n        for i = 2, #value do kong.service.request.add_header(name, value[i]) end\n      else\n        kong.service.request.set_header(name, value)\n      end\n    end\n  end\nend\n"
+      body_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift): WSO2's body in place of Kong's where WSO2 words an answer its own\n-- way; a 403 by the message Kong's plugin gave, and kept when WSO2 has no word for it.\nreturn function()\n  local shared = kong.ctx.shared\n  local body, refusals = shared.fs_wso2_body, shared.fs_wso2_forbidden\n  if not body and not refusals then return end\n  local kong_body = kong.response.get_raw_body()\n  if not kong_body then return end\n  if not body then\n    for _, r in ipairs(refusals) do\n      if kong_body:find(r.kong, 1, true) then\n        body = r.wso2\n        break\n      end\n    end\n  end\n  if body then kong.response.set_raw_body(body) end\nend\n"
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), on the response: WSO2's CORS headers, its 401, the request\n-- headers it copies back into an error, and no Server header.\nlocal CORS = {\n  any_origin = true,\n  origins = { [\"*\"] = true },\n  methods = \"POST\",\n  headers = \"authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,Authorization,ApiKey\",\n  expose = \" \",\n  credentials = false,\n}\nlocal AUTH_ERRORS = true\nlocal TOKEN_HEADER = \"Authorization\"\nlocal CHALLENGE = \"Internal API Key realm=\\\"WSO2 API Manager\\\", Bearer realm=\\\"WSO2 API Manager\\\", error=\\\"invalid_token\\\", error_description=\\\"The provided token is invalid\\\"\"\nlocal MISSING = \"{\\\"code\\\":\\\"900902\\\",\\\"message\\\":\\\"Missing Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure your API invocation call has a header: 'Authorization : Bearer ACCESS_TOKEN' or 'Authorization : Basic ACCESS_TOKEN' or 'ApiKey : API_KEY'\\\"}\"\nlocal INVALID_JWT = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal INVALID_OPAQUE = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900901) - Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal ACTIVITY = \"activityid\"\nlocal CONTEXT = \"/forgeshift-parity/scopes/1.0.0\"\nlocal RESOURCE = \"/post\"\nlocal NOT_SUBSCRIBED = \"{\\\"code\\\":\\\"900908\\\",\\\"message\\\":\\\"Resource forbidden \\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900908) - Resource forbidden \\\"}\"\nlocal KONG_NOT_SUBSCRIBED = \"You cannot consume this service\"\nlocal KONG_SCOPE_DENIED = \"The access token does not allow you to access the requested resource\"\nlocal SCOPE_DENIED_HEAD = \"{\\\"code\\\":\\\"900910\\\",\\\"message\\\":\\\"The access token does not allow you to access the requested resource\\\",\\\"description\\\":\\\"User is NOT authorized to access the Resource: \"\nlocal SCOPE_DENIED_TAIL = \". Scope validation failed.\\\"}\"\n\n-- An error copies back every request header but these; a preflight leaves out only User-Agent and the\n-- connection's own.\nlocal NOT_COPIED = { host = true, [\"user-agent\"] = true, accept = true, authorization = true, date = true,\n  server = true, [\"content-type\"] = true, [\"www-authenticate\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\nlocal NOT_COPIED_PREFLIGHT = { [\"user-agent\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\n\nlocal function copy_request_headers(skip)\n  for name, value in pairs(ngx.req.get_headers(0, true)) do\n    if not skip[string.lower(name)] then\n      if type(value) == \"table\" then\n        kong.response.set_header(name, value[1])\n        for i = 2, #value do kong.response.add_header(name, value[i]) end\n      else\n        kong.response.set_header(name, value)\n      end\n    end\n  end\nend\n\nlocal function add_if_missing(name, value)\n  if kong.response.get_header(name) == nil then kong.response.set_header(name, value) end\nend\n\nlocal function cors()\n  local origin = \"*\"\n  if not CORS.any_origin then\n    local o = kong.request.get_header(\"Origin\")\n    origin = (o and CORS.origins[o]) and o or \" \"\n  end\n  add_if_missing(\"Access-Control-Allow-Origin\", origin)\n  add_if_missing(\"Access-Control-Allow-Methods\", CORS.methods)\n  add_if_missing(\"Access-Control-Allow-Headers\", CORS.headers)\n  if CORS.credentials then add_if_missing(\"Access-Control-Allow-Credentials\", \"true\") end\n  add_if_missing(\"Access-Control-Expose-Headers\", CORS.expose)\nend\n\n-- WSO2 validates a token as a JWT when its header and payload decode to JSON objects, and by key lookup\n-- otherwise; the two say different things.\nlocal function json_object(part)\n  part = part:gsub(\"-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #part % 4\n  if pad > 0 then part = part .. string.rep(\"=\", 4 - pad) end\n  local text = ngx.decode_base64(part)\n  return text ~= nil and text:match(\"^%s*{\") ~= nil\nend\n\nlocal function wso2_401()\n  local value = kong.request.get_header(TOKEN_HEADER)\n  local token = value and value:match(\"^Bearer (.+)$\")\n  if not token then return MISSING end\n  local header, payload = token:match(\"^([^.]+)%.([^.]+)%.[^.]*$\")\n  if header and json_object(header) and json_object(payload) then return INVALID_JWT end\n  return INVALID_OPAQUE\nend\n\n-- WSO2's 403 for each refusal Kong's plugins give a valid token, told apart by Kong's message in the\n-- body: the acl plugin's for an application not subscribed, a scope check's for a missing scope, which\n-- WSO2 words with the operation's resource.\nlocal BACKSLASH = string.char(92)\nlocal function json_text(s)\n  return (s:gsub(\"[\" .. BACKSLASH .. '\"]', function(c) return BACKSLASH .. c end))\nend\n\nlocal function wso2_403()\n  local resource = RESOURCE or kong.request.get_path():sub(#CONTEXT + 1)\n  return {\n    { kong = KONG_NOT_SUBSCRIBED, wso2 = NOT_SUBSCRIBED },\n    { kong = KONG_SCOPE_DENIED, wso2 = SCOPE_DENIED_HEAD .. json_text(resource) .. SCOPE_DENIED_TAIL },\n  }\nend\n\nlocal function activity()\n  if ACTIVITY and kong.response.get_header(ACTIVITY) == nil then\n    local id = kong.request.get_header(ACTIVITY)\n    if not id then\n      local r = math.random\n      id = string.format(\"%04x%04x-%04x-4%03x-%04x-%04x%04x%04x\", r(0, 65535), r(0, 65535), r(0, 65535),\n        r(0, 4095), r(32768, 49151), r(0, 65535), r(0, 65535), r(0, 65535))\n    end\n    kong.response.set_header(ACTIVITY, id)\n  end\nend\n\n-- An answer Kong made itself gets back the headers it had before the API's response policies ran. Not\n-- Content-Length: a policy that rewrites the body has dropped it, and the body may not be put back.\nlocal function restore_own_headers(before)\n  for name in pairs(kong.response.get_headers()) do\n    if before[name] == nil then kong.response.clear_header(name) end\n  end\n  for name, value in pairs(before) do\n    if name == \"content-length\" then\n      -- left as the policies left it\n    elseif type(value) == \"table\" then\n      kong.response.set_header(name, value[1])\n      for i = 2, #value do kong.response.add_header(name, value[i]) end\n    else\n      kong.response.set_header(name, value)\n    end\n  end\nend\n\nreturn function()\n  local shared = kong.ctx.shared\n  if shared.fs_wso2_own_headers then restore_own_headers(shared.fs_wso2_own_headers) end\n  -- Set, then cleared: nginx then adds no Server of its own either.\n  kong.response.set_header(\"Server\", \"-\")\n  kong.response.clear_header(\"Server\")\n\n  local reply = shared.fs_wso2_reply\n  if reply == \"method-not-allowed\" or reply == \"no-resource\" then\n    copy_request_headers(NOT_COPIED)\n    activity()\n    return\n  end\n  if reply == \"preflight\" then\n    copy_request_headers(NOT_COPIED_PREFLIGHT)\n  elseif kong.response.get_source() == \"exit\" then\n    local status = kong.response.get_status()\n    if status == 401 or status == 403 then\n      copy_request_headers(NOT_COPIED)\n      if status == 401 and AUTH_ERRORS then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.set_header(\"WWW-Authenticate\", CHALLENGE)\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_body = wso2_401()\n      end\n      if status == 403 and NOT_SUBSCRIBED then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_forbidden = wso2_403()\n      end\n    end\n  end\n  if CORS then cors() end\n  activity()\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: post-function
+    route: forgeshiftparityscopes-1-0-0--wso2-unmatched
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        []
+      body_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift): WSO2's body in place of Kong's where WSO2 words an answer its own\n-- way; a 403 by the message Kong's plugin gave, and kept when WSO2 has no word for it.\nreturn function()\n  local shared = kong.ctx.shared\n  local body, refusals = shared.fs_wso2_body, shared.fs_wso2_forbidden\n  if not body and not refusals then return end\n  local kong_body = kong.response.get_raw_body()\n  if not kong_body then return end\n  if not body then\n    for _, r in ipairs(refusals) do\n      if kong_body:find(r.kong, 1, true) then\n        body = r.wso2\n        break\n      end\n    end\n  end\n  if body then kong.response.set_raw_body(body) end\nend\n"
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), on the response: WSO2's CORS headers, its 401, the request\n-- headers it copies back into an error, and no Server header.\nlocal CORS = nil\nlocal AUTH_ERRORS = false\nlocal ACTIVITY = \"activityid\"\nlocal CONTEXT = nil\nlocal RESOURCE = nil\nlocal NOT_SUBSCRIBED = nil\nlocal KONG_NOT_SUBSCRIBED = \"You cannot consume this service\"\nlocal KONG_SCOPE_DENIED = \"The access token does not allow you to access the requested resource\"\nlocal SCOPE_DENIED_HEAD = \"{\\\"code\\\":\\\"900910\\\",\\\"message\\\":\\\"The access token does not allow you to access the requested resource\\\",\\\"description\\\":\\\"User is NOT authorized to access the Resource: \"\nlocal SCOPE_DENIED_TAIL = \". Scope validation failed.\\\"}\"\n\n-- An error copies back every request header but these; a preflight leaves out only User-Agent and the\n-- connection's own.\nlocal NOT_COPIED = { host = true, [\"user-agent\"] = true, accept = true, authorization = true, date = true,\n  server = true, [\"content-type\"] = true, [\"www-authenticate\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\nlocal NOT_COPIED_PREFLIGHT = { [\"user-agent\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\n\nlocal function copy_request_headers(skip)\n  for name, value in pairs(ngx.req.get_headers(0, true)) do\n    if not skip[string.lower(name)] then\n      if type(value) == \"table\" then\n        kong.response.set_header(name, value[1])\n        for i = 2, #value do kong.response.add_header(name, value[i]) end\n      else\n        kong.response.set_header(name, value)\n      end\n    end\n  end\nend\n\nlocal function add_if_missing(name, value)\n  if kong.response.get_header(name) == nil then kong.response.set_header(name, value) end\nend\n\nlocal function cors()\n  local origin = \"*\"\n  if not CORS.any_origin then\n    local o = kong.request.get_header(\"Origin\")\n    origin = (o and CORS.origins[o]) and o or \" \"\n  end\n  add_if_missing(\"Access-Control-Allow-Origin\", origin)\n  add_if_missing(\"Access-Control-Allow-Methods\", CORS.methods)\n  add_if_missing(\"Access-Control-Allow-Headers\", CORS.headers)\n  if CORS.credentials then add_if_missing(\"Access-Control-Allow-Credentials\", \"true\") end\n  add_if_missing(\"Access-Control-Expose-Headers\", CORS.expose)\nend\n\n-- WSO2 validates a token as a JWT when its header and payload decode to JSON objects, and by key lookup\n-- otherwise; the two say different things.\nlocal function json_object(part)\n  part = part:gsub(\"-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #part % 4\n  if pad > 0 then part = part .. string.rep(\"=\", 4 - pad) end\n  local text = ngx.decode_base64(part)\n  return text ~= nil and text:match(\"^%s*{\") ~= nil\nend\n\nlocal function wso2_401()\n  local value = kong.request.get_header(TOKEN_HEADER)\n  local token = value and value:match(\"^Bearer (.+)$\")\n  if not token then return MISSING end\n  local header, payload = token:match(\"^([^.]+)%.([^.]+)%.[^.]*$\")\n  if header and json_object(header) and json_object(payload) then return INVALID_JWT end\n  return INVALID_OPAQUE\nend\n\n-- WSO2's 403 for each refusal Kong's plugins give a valid token, told apart by Kong's message in the\n-- body: the acl plugin's for an application not subscribed, a scope check's for a missing scope, which\n-- WSO2 words with the operation's resource.\nlocal BACKSLASH = string.char(92)\nlocal function json_text(s)\n  return (s:gsub(\"[\" .. BACKSLASH .. '\"]', function(c) return BACKSLASH .. c end))\nend\n\nlocal function wso2_403()\n  local resource = RESOURCE or kong.request.get_path():sub(#CONTEXT + 1)\n  return {\n    { kong = KONG_NOT_SUBSCRIBED, wso2 = NOT_SUBSCRIBED },\n    { kong = KONG_SCOPE_DENIED, wso2 = SCOPE_DENIED_HEAD .. json_text(resource) .. SCOPE_DENIED_TAIL },\n  }\nend\n\nlocal function activity()\n  if ACTIVITY and kong.response.get_header(ACTIVITY) == nil then\n    local id = kong.request.get_header(ACTIVITY)\n    if not id then\n      local r = math.random\n      id = string.format(\"%04x%04x-%04x-4%03x-%04x-%04x%04x%04x\", r(0, 65535), r(0, 65535), r(0, 65535),\n        r(0, 4095), r(32768, 49151), r(0, 65535), r(0, 65535), r(0, 65535))\n    end\n    kong.response.set_header(ACTIVITY, id)\n  end\nend\n\n-- An answer Kong made itself gets back the headers it had before the API's response policies ran. Not\n-- Content-Length: a policy that rewrites the body has dropped it, and the body may not be put back.\nlocal function restore_own_headers(before)\n  for name in pairs(kong.response.get_headers()) do\n    if before[name] == nil then kong.response.clear_header(name) end\n  end\n  for name, value in pairs(before) do\n    if name == \"content-length\" then\n      -- left as the policies left it\n    elseif type(value) == \"table\" then\n      kong.response.set_header(name, value[1])\n      for i = 2, #value do kong.response.add_header(name, value[i]) end\n    else\n      kong.response.set_header(name, value)\n    end\n  end\nend\n\nreturn function()\n  local shared = kong.ctx.shared\n  if shared.fs_wso2_own_headers then restore_own_headers(shared.fs_wso2_own_headers) end\n  -- Set, then cleared: nginx then adds no Server of its own either.\n  kong.response.set_header(\"Server\", \"-\")\n  kong.response.clear_header(\"Server\")\n\n  local reply = shared.fs_wso2_reply\n  if reply == \"method-not-allowed\" or reply == \"no-resource\" then\n    copy_request_headers(NOT_COPIED)\n    activity()\n    return\n  end\n  if reply == \"preflight\" then\n    copy_request_headers(NOT_COPIED_PREFLIGHT)\n  elseif kong.response.get_source() == \"exit\" then\n    local status = kong.response.get_status()\n    if status == 401 or status == 403 then\n      copy_request_headers(NOT_COPIED)\n      if status == 401 and AUTH_ERRORS then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.set_header(\"WWW-Authenticate\", CHALLENGE)\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_body = wso2_401()\n      end\n      if status == 403 and NOT_SUBSCRIBED then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_forbidden = wso2_403()\n      end\n    end\n  end\n  if CORS then cors() end\n  activity()\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: jwt
+    service: forgeshiftparityscopes-1-0-0
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      anonymous: null
+      claims_to_verify:
+        - exp
+      cookie_names:
+        []
+      header_names:
+        - authorization
+      key_claim_name: azp
+      maximum_expiration: 0
+      realm: null
+      run_on_preflight: true
+      secret_is_base64: "[REDACTED]"
+      uri_param_names:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: pre-function
+    service: forgeshiftparityscopes-1-0-0
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- Apigee path rewrite (apigee-kong-migrator)\nlocal route        = kong.router.get_route()\nlocal service      = kong.router.get_service()\nlocal service_path = (service and service.path) or \"/\"\n-- Check for apigee-strip-len tag set on suffix routes during migration\nlocal strip_len = nil\nif route and route.tags then\n  for _, tag in ipairs(route.tags) do\n    if tag:sub(1, 17) == \"apigee-strip-len:\" then\n      strip_len = tonumber(tag:sub(18))\n      break\n    end\n  end\nend\n-- Fall back to route path length if no tag (covers normal routes)\nif not strip_len then\n  local route_path = (route and route.paths and route.paths[1]) or \"/\"\n  if route_path:sub(1, 1) == \"~\" then route_path = route_path:sub(2) end\n  strip_len = #route_path\nend\nlocal incoming = kong.request.get_path()\nlocal suffix = \"/\"\nif #incoming >= strip_len then\n  suffix = incoming:sub(strip_len + 1)\nend\nif suffix == \"\" then suffix = \"/\" end\nlocal clean_target = service_path:gsub(\"/+$\", \"\")\nif suffix:sub(1, 1) ~= \"/\" then suffix = \"/\" .. suffix end\nkong.service.request.set_path(clean_target .. suffix)\n"
+      body_filter:
+        []
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        []
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - global
+      - apigee-path-rewrite
+  - name: request-termination
+    route: forgeshiftparityscopes-1-0-0--wso2-unmatched
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      body: "{\"code\":\"404\",\"type\":\"Status report\",\"message\":\"Runtime Error\",\"description\":\"No matching resource found for given API Request\"}"
+      content_type: application/json; charset=UTF-8
+      echo: false
+      message: null
+      status_code: 404
+      trigger: null
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: acl
+    route: forgeshiftparityscopes-1-0-0--getget
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      allow:
+        - wso2-api:58458116-2661-4c4e-ac83-498430e04320
+      allow_when: null
+      always_use_authenticated_groups: false
+      deny: null
+      deny_when: null
+      hide_groups_header: true
+      include_consumer_groups: false
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: post-function
+    route: forgeshiftparityscopes-1-0-0--getheaders
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 OAuth2 scope check (ForgeShift): a call needs any one of its operation's scopes.\nlocal RULES = {\n  { methods = {  }, scopes = { \"parity_read\", \"parity_write\" } },\n}\n\n-- The sandbox allows no require, cjson included, so the scope claim is read from the JSON text.\nlocal function token_scopes(token)\n  local set = {}\n  local payload = token:match(\"^[^%.]+%.([^%.]+)\")\n  if not payload then return set end\n  payload = payload:gsub(\"%-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #payload % 4\n  if pad > 0 then payload = payload .. string.rep(\"=\", 4 - pad) end\n  local json = ngx.decode_base64(payload) or \"\"\n  local list = json:match('\"scope\"%s*:%s*\"([^\"]*)\"')\n  if list then\n    for s in list:gmatch(\"%S+\") do set[s] = true end\n  else\n    list = json:match('\"scope\"%s*:%s*%[([^%]]*)%]')\n    for s in (list or \"\"):gmatch('\"([^\"]*)\"') do set[s] = true end\n  end\n  return set\nend\n\nreturn function()\n  -- Only a token the jwt plugin verified carries scopes. A call it let through as anonymous\n  -- was authenticated some other way (an API key), and WSO2 checks no scope on that.\n  local token = kong.ctx.shared.authenticated_jwt_token\n  if not token then return end\n  local method = kong.request.get_method()\n  for _, rule in ipairs(RULES) do\n    local applies = #rule.methods == 0\n    for _, m in ipairs(rule.methods) do\n      if m == method then applies = true end\n    end\n    if applies then\n      local have = token_scopes(token)\n      for _, s in ipairs(rule.scopes) do\n        if have[s] then return end\n      end\n      return kong.response.exit(403, { message = \"The access token does not allow you to access the requested resource\" })\n    end\n  end\nend\n"
+        - "-- WSO2 gateway behaviour (ForgeShift), after every other plugin. WSO2's gateway sends the backend no Via\n-- and no X-Forwarded-* header (Kong's come from these variables), and passes on the caller's own values\n-- of the headers Kong's auth plugins set.\nlocal FORWARDING = { \"upstream_via\", \"upstream_x_forwarded_for\", \"upstream_x_forwarded_proto\",\n  \"upstream_x_forwarded_host\", \"upstream_x_forwarded_port\", \"upstream_x_forwarded_path\",\n  \"upstream_x_forwarded_prefix\" }\n\nreturn function()\n  for _, name in ipairs(FORWARDING) do\n    -- A Kong without one of them keeps going.\n    pcall(function() ngx.var[name] = \"\" end)\n  end\n  local saved = kong.ctx.shared.fs_wso2_caller_headers\n  if saved then\n    for name, value in pairs(saved) do\n      if type(value) == \"table\" then\n        kong.service.request.set_header(name, value[1])\n        for i = 2, #value do kong.service.request.add_header(name, value[i]) end\n      else\n        kong.service.request.set_header(name, value)\n      end\n    end\n  end\nend\n"
+      body_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift): WSO2's body in place of Kong's where WSO2 words an answer its own\n-- way; a 403 by the message Kong's plugin gave, and kept when WSO2 has no word for it.\nreturn function()\n  local shared = kong.ctx.shared\n  local body, refusals = shared.fs_wso2_body, shared.fs_wso2_forbidden\n  if not body and not refusals then return end\n  local kong_body = kong.response.get_raw_body()\n  if not kong_body then return end\n  if not body then\n    for _, r in ipairs(refusals) do\n      if kong_body:find(r.kong, 1, true) then\n        body = r.wso2\n        break\n      end\n    end\n  end\n  if body then kong.response.set_raw_body(body) end\nend\n"
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), on the response: WSO2's CORS headers, its 401, the request\n-- headers it copies back into an error, and no Server header.\nlocal CORS = {\n  any_origin = true,\n  origins = { [\"*\"] = true },\n  methods = \"GET\",\n  headers = \"authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,Authorization,ApiKey\",\n  expose = \" \",\n  credentials = false,\n}\nlocal AUTH_ERRORS = true\nlocal TOKEN_HEADER = \"Authorization\"\nlocal CHALLENGE = \"Internal API Key realm=\\\"WSO2 API Manager\\\", Bearer realm=\\\"WSO2 API Manager\\\", error=\\\"invalid_token\\\", error_description=\\\"The provided token is invalid\\\"\"\nlocal MISSING = \"{\\\"code\\\":\\\"900902\\\",\\\"message\\\":\\\"Missing Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure your API invocation call has a header: 'Authorization : Bearer ACCESS_TOKEN' or 'Authorization : Basic ACCESS_TOKEN' or 'ApiKey : API_KEY'\\\"}\"\nlocal INVALID_JWT = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal INVALID_OPAQUE = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900901) - Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal ACTIVITY = \"activityid\"\nlocal CONTEXT = \"/forgeshift-parity/scopes/1.0.0\"\nlocal RESOURCE = \"/headers\"\nlocal NOT_SUBSCRIBED = \"{\\\"code\\\":\\\"900908\\\",\\\"message\\\":\\\"Resource forbidden \\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900908) - Resource forbidden \\\"}\"\nlocal KONG_NOT_SUBSCRIBED = \"You cannot consume this service\"\nlocal KONG_SCOPE_DENIED = \"The access token does not allow you to access the requested resource\"\nlocal SCOPE_DENIED_HEAD = \"{\\\"code\\\":\\\"900910\\\",\\\"message\\\":\\\"The access token does not allow you to access the requested resource\\\",\\\"description\\\":\\\"User is NOT authorized to access the Resource: \"\nlocal SCOPE_DENIED_TAIL = \". Scope validation failed.\\\"}\"\n\n-- An error copies back every request header but these; a preflight leaves out only User-Agent and the\n-- connection's own.\nlocal NOT_COPIED = { host = true, [\"user-agent\"] = true, accept = true, authorization = true, date = true,\n  server = true, [\"content-type\"] = true, [\"www-authenticate\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\nlocal NOT_COPIED_PREFLIGHT = { [\"user-agent\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\n\nlocal function copy_request_headers(skip)\n  for name, value in pairs(ngx.req.get_headers(0, true)) do\n    if not skip[string.lower(name)] then\n      if type(value) == \"table\" then\n        kong.response.set_header(name, value[1])\n        for i = 2, #value do kong.response.add_header(name, value[i]) end\n      else\n        kong.response.set_header(name, value)\n      end\n    end\n  end\nend\n\nlocal function add_if_missing(name, value)\n  if kong.response.get_header(name) == nil then kong.response.set_header(name, value) end\nend\n\nlocal function cors()\n  local origin = \"*\"\n  if not CORS.any_origin then\n    local o = kong.request.get_header(\"Origin\")\n    origin = (o and CORS.origins[o]) and o or \" \"\n  end\n  add_if_missing(\"Access-Control-Allow-Origin\", origin)\n  add_if_missing(\"Access-Control-Allow-Methods\", CORS.methods)\n  add_if_missing(\"Access-Control-Allow-Headers\", CORS.headers)\n  if CORS.credentials then add_if_missing(\"Access-Control-Allow-Credentials\", \"true\") end\n  add_if_missing(\"Access-Control-Expose-Headers\", CORS.expose)\nend\n\n-- WSO2 validates a token as a JWT when its header and payload decode to JSON objects, and by key lookup\n-- otherwise; the two say different things.\nlocal function json_object(part)\n  part = part:gsub(\"-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #part % 4\n  if pad > 0 then part = part .. string.rep(\"=\", 4 - pad) end\n  local text = ngx.decode_base64(part)\n  return text ~= nil and text:match(\"^%s*{\") ~= nil\nend\n\nlocal function wso2_401()\n  local value = kong.request.get_header(TOKEN_HEADER)\n  local token = value and value:match(\"^Bearer (.+)$\")\n  if not token then return MISSING end\n  local header, payload = token:match(\"^([^.]+)%.([^.]+)%.[^.]*$\")\n  if header and json_object(header) and json_object(payload) then return INVALID_JWT end\n  return INVALID_OPAQUE\nend\n\n-- WSO2's 403 for each refusal Kong's plugins give a valid token, told apart by Kong's message in the\n-- body: the acl plugin's for an application not subscribed, a scope check's for a missing scope, which\n-- WSO2 words with the operation's resource.\nlocal BACKSLASH = string.char(92)\nlocal function json_text(s)\n  return (s:gsub(\"[\" .. BACKSLASH .. '\"]', function(c) return BACKSLASH .. c end))\nend\n\nlocal function wso2_403()\n  local resource = RESOURCE or kong.request.get_path():sub(#CONTEXT + 1)\n  return {\n    { kong = KONG_NOT_SUBSCRIBED, wso2 = NOT_SUBSCRIBED },\n    { kong = KONG_SCOPE_DENIED, wso2 = SCOPE_DENIED_HEAD .. json_text(resource) .. SCOPE_DENIED_TAIL },\n  }\nend\n\nlocal function activity()\n  if ACTIVITY and kong.response.get_header(ACTIVITY) == nil then\n    local id = kong.request.get_header(ACTIVITY)\n    if not id then\n      local r = math.random\n      id = string.format(\"%04x%04x-%04x-4%03x-%04x-%04x%04x%04x\", r(0, 65535), r(0, 65535), r(0, 65535),\n        r(0, 4095), r(32768, 49151), r(0, 65535), r(0, 65535), r(0, 65535))\n    end\n    kong.response.set_header(ACTIVITY, id)\n  end\nend\n\n-- An answer Kong made itself gets back the headers it had before the API's response policies ran. Not\n-- Content-Length: a policy that rewrites the body has dropped it, and the body may not be put back.\nlocal function restore_own_headers(before)\n  for name in pairs(kong.response.get_headers()) do\n    if before[name] == nil then kong.response.clear_header(name) end\n  end\n  for name, value in pairs(before) do\n    if name == \"content-length\" then\n      -- left as the policies left it\n    elseif type(value) == \"table\" then\n      kong.response.set_header(name, value[1])\n      for i = 2, #value do kong.response.add_header(name, value[i]) end\n    else\n      kong.response.set_header(name, value)\n    end\n  end\nend\n\nreturn function()\n  local shared = kong.ctx.shared\n  if shared.fs_wso2_own_headers then restore_own_headers(shared.fs_wso2_own_headers) end\n  -- Set, then cleared: nginx then adds no Server of its own either.\n  kong.response.set_header(\"Server\", \"-\")\n  kong.response.clear_header(\"Server\")\n\n  local reply = shared.fs_wso2_reply\n  if reply == \"method-not-allowed\" or reply == \"no-resource\" then\n    copy_request_headers(NOT_COPIED)\n    activity()\n    return\n  end\n  if reply == \"preflight\" then\n    copy_request_headers(NOT_COPIED_PREFLIGHT)\n  elseif kong.response.get_source() == \"exit\" then\n    local status = kong.response.get_status()\n    if status == 401 or status == 403 then\n      copy_request_headers(NOT_COPIED)\n      if status == 401 and AUTH_ERRORS then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.set_header(\"WWW-Authenticate\", CHALLENGE)\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_body = wso2_401()\n      end\n      if status == 403 and NOT_SUBSCRIBED then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_forbidden = wso2_403()\n      end\n    end\n  end\n  if CORS then cors() end\n  activity()\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-scope-check
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: acl
+    route: forgeshiftparityscopes-1-0-0--getheaders
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      allow:
+        - wso2-api:58458116-2661-4c4e-ac83-498430e04320
+      allow_when: null
+      always_use_authenticated_groups: false
+      deny: null
+      deny_when: null
+      hide_groups_header: true
+      include_consumer_groups: false
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: request-transformer
+    route: forgeshiftparityscopes-1-0-0--getheaders
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      add:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+      append:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      http_method: null
+      remove:
+        body:
+          []
+        headers:
+          - Authorization
+          - X-Consumer-ID
+          - X-Consumer-Custom-ID
+          - X-Consumer-Username
+          - X-Credential-Identifier
+          - X-Anonymous-Consumer
+        querystring:
+          []
+      rename:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      replace:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+        uri: /headers$(uri_captures.wso2_rest or "")
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: correlation-id
+    service: forgeshiftparityscopes-1-0-0
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      echo_downstream: true
+      generator: uuid
+      header_name: activityid
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: post-function
+    route: forgeshiftparityscopes-1-0-0--getget
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 OAuth2 scope check (ForgeShift): a call needs any one of its operation's scopes.\nlocal RULES = {\n  { methods = {  }, scopes = { \"parity_read\" } },\n}\n\n-- The sandbox allows no require, cjson included, so the scope claim is read from the JSON text.\nlocal function token_scopes(token)\n  local set = {}\n  local payload = token:match(\"^[^%.]+%.([^%.]+)\")\n  if not payload then return set end\n  payload = payload:gsub(\"%-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #payload % 4\n  if pad > 0 then payload = payload .. string.rep(\"=\", 4 - pad) end\n  local json = ngx.decode_base64(payload) or \"\"\n  local list = json:match('\"scope\"%s*:%s*\"([^\"]*)\"')\n  if list then\n    for s in list:gmatch(\"%S+\") do set[s] = true end\n  else\n    list = json:match('\"scope\"%s*:%s*%[([^%]]*)%]')\n    for s in (list or \"\"):gmatch('\"([^\"]*)\"') do set[s] = true end\n  end\n  return set\nend\n\nreturn function()\n  -- Only a token the jwt plugin verified carries scopes. A call it let through as anonymous\n  -- was authenticated some other way (an API key), and WSO2 checks no scope on that.\n  local token = kong.ctx.shared.authenticated_jwt_token\n  if not token then return end\n  local method = kong.request.get_method()\n  for _, rule in ipairs(RULES) do\n    local applies = #rule.methods == 0\n    for _, m in ipairs(rule.methods) do\n      if m == method then applies = true end\n    end\n    if applies then\n      local have = token_scopes(token)\n      for _, s in ipairs(rule.scopes) do\n        if have[s] then return end\n      end\n      return kong.response.exit(403, { message = \"The access token does not allow you to access the requested resource\" })\n    end\n  end\nend\n"
+        - "-- WSO2 gateway behaviour (ForgeShift), after every other plugin. WSO2's gateway sends the backend no Via\n-- and no X-Forwarded-* header (Kong's come from these variables), and passes on the caller's own values\n-- of the headers Kong's auth plugins set.\nlocal FORWARDING = { \"upstream_via\", \"upstream_x_forwarded_for\", \"upstream_x_forwarded_proto\",\n  \"upstream_x_forwarded_host\", \"upstream_x_forwarded_port\", \"upstream_x_forwarded_path\",\n  \"upstream_x_forwarded_prefix\" }\n\nreturn function()\n  for _, name in ipairs(FORWARDING) do\n    -- A Kong without one of them keeps going.\n    pcall(function() ngx.var[name] = \"\" end)\n  end\n  local saved = kong.ctx.shared.fs_wso2_caller_headers\n  if saved then\n    for name, value in pairs(saved) do\n      if type(value) == \"table\" then\n        kong.service.request.set_header(name, value[1])\n        for i = 2, #value do kong.service.request.add_header(name, value[i]) end\n      else\n        kong.service.request.set_header(name, value)\n      end\n    end\n  end\nend\n"
+      body_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift): WSO2's body in place of Kong's where WSO2 words an answer its own\n-- way; a 403 by the message Kong's plugin gave, and kept when WSO2 has no word for it.\nreturn function()\n  local shared = kong.ctx.shared\n  local body, refusals = shared.fs_wso2_body, shared.fs_wso2_forbidden\n  if not body and not refusals then return end\n  local kong_body = kong.response.get_raw_body()\n  if not kong_body then return end\n  if not body then\n    for _, r in ipairs(refusals) do\n      if kong_body:find(r.kong, 1, true) then\n        body = r.wso2\n        break\n      end\n    end\n  end\n  if body then kong.response.set_raw_body(body) end\nend\n"
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), on the response: WSO2's CORS headers, its 401, the request\n-- headers it copies back into an error, and no Server header.\nlocal CORS = {\n  any_origin = true,\n  origins = { [\"*\"] = true },\n  methods = \"GET\",\n  headers = \"authorization,Access-Control-Allow-Origin,Content-Type,SOAPAction,Authorization,ApiKey\",\n  expose = \" \",\n  credentials = false,\n}\nlocal AUTH_ERRORS = true\nlocal TOKEN_HEADER = \"Authorization\"\nlocal CHALLENGE = \"Internal API Key realm=\\\"WSO2 API Manager\\\", Bearer realm=\\\"WSO2 API Manager\\\", error=\\\"invalid_token\\\", error_description=\\\"The provided token is invalid\\\"\"\nlocal MISSING = \"{\\\"code\\\":\\\"900902\\\",\\\"message\\\":\\\"Missing Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure your API invocation call has a header: 'Authorization : Bearer ACCESS_TOKEN' or 'Authorization : Basic ACCESS_TOKEN' or 'ApiKey : API_KEY'\\\"}\"\nlocal INVALID_JWT = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal INVALID_OPAQUE = \"{\\\"code\\\":\\\"900901\\\",\\\"message\\\":\\\"Invalid Credentials\\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900901) - Invalid Credentials. Make sure you have provided the correct security credentials\\\"}\"\nlocal ACTIVITY = \"activityid\"\nlocal CONTEXT = \"/forgeshift-parity/scopes/1.0.0\"\nlocal RESOURCE = \"/get\"\nlocal NOT_SUBSCRIBED = \"{\\\"code\\\":\\\"900908\\\",\\\"message\\\":\\\"Resource forbidden \\\",\\\"description\\\":\\\"Access failure for API: /forgeshift-parity/scopes/1.0.0, version: 1.0.0 status: (900908) - Resource forbidden \\\"}\"\nlocal KONG_NOT_SUBSCRIBED = \"You cannot consume this service\"\nlocal KONG_SCOPE_DENIED = \"The access token does not allow you to access the requested resource\"\nlocal SCOPE_DENIED_HEAD = \"{\\\"code\\\":\\\"900910\\\",\\\"message\\\":\\\"The access token does not allow you to access the requested resource\\\",\\\"description\\\":\\\"User is NOT authorized to access the Resource: \"\nlocal SCOPE_DENIED_TAIL = \". Scope validation failed.\\\"}\"\n\n-- An error copies back every request header but these; a preflight leaves out only User-Agent and the\n-- connection's own.\nlocal NOT_COPIED = { host = true, [\"user-agent\"] = true, accept = true, authorization = true, date = true,\n  server = true, [\"content-type\"] = true, [\"www-authenticate\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\nlocal NOT_COPIED_PREFLIGHT = { [\"user-agent\"] = true, [\"content-length\"] = true,\n  [\"transfer-encoding\"] = true, connection = true, [\"keep-alive\"] = true, expect = true, upgrade = true,\n  [\"proxy-connection\"] = true }\n\nlocal function copy_request_headers(skip)\n  for name, value in pairs(ngx.req.get_headers(0, true)) do\n    if not skip[string.lower(name)] then\n      if type(value) == \"table\" then\n        kong.response.set_header(name, value[1])\n        for i = 2, #value do kong.response.add_header(name, value[i]) end\n      else\n        kong.response.set_header(name, value)\n      end\n    end\n  end\nend\n\nlocal function add_if_missing(name, value)\n  if kong.response.get_header(name) == nil then kong.response.set_header(name, value) end\nend\n\nlocal function cors()\n  local origin = \"*\"\n  if not CORS.any_origin then\n    local o = kong.request.get_header(\"Origin\")\n    origin = (o and CORS.origins[o]) and o or \" \"\n  end\n  add_if_missing(\"Access-Control-Allow-Origin\", origin)\n  add_if_missing(\"Access-Control-Allow-Methods\", CORS.methods)\n  add_if_missing(\"Access-Control-Allow-Headers\", CORS.headers)\n  if CORS.credentials then add_if_missing(\"Access-Control-Allow-Credentials\", \"true\") end\n  add_if_missing(\"Access-Control-Expose-Headers\", CORS.expose)\nend\n\n-- WSO2 validates a token as a JWT when its header and payload decode to JSON objects, and by key lookup\n-- otherwise; the two say different things.\nlocal function json_object(part)\n  part = part:gsub(\"-\", \"+\"):gsub(\"_\", \"/\")\n  local pad = #part % 4\n  if pad > 0 then part = part .. string.rep(\"=\", 4 - pad) end\n  local text = ngx.decode_base64(part)\n  return text ~= nil and text:match(\"^%s*{\") ~= nil\nend\n\nlocal function wso2_401()\n  local value = kong.request.get_header(TOKEN_HEADER)\n  local token = value and value:match(\"^Bearer (.+)$\")\n  if not token then return MISSING end\n  local header, payload = token:match(\"^([^.]+)%.([^.]+)%.[^.]*$\")\n  if header and json_object(header) and json_object(payload) then return INVALID_JWT end\n  return INVALID_OPAQUE\nend\n\n-- WSO2's 403 for each refusal Kong's plugins give a valid token, told apart by Kong's message in the\n-- body: the acl plugin's for an application not subscribed, a scope check's for a missing scope, which\n-- WSO2 words with the operation's resource.\nlocal BACKSLASH = string.char(92)\nlocal function json_text(s)\n  return (s:gsub(\"[\" .. BACKSLASH .. '\"]', function(c) return BACKSLASH .. c end))\nend\n\nlocal function wso2_403()\n  local resource = RESOURCE or kong.request.get_path():sub(#CONTEXT + 1)\n  return {\n    { kong = KONG_NOT_SUBSCRIBED, wso2 = NOT_SUBSCRIBED },\n    { kong = KONG_SCOPE_DENIED, wso2 = SCOPE_DENIED_HEAD .. json_text(resource) .. SCOPE_DENIED_TAIL },\n  }\nend\n\nlocal function activity()\n  if ACTIVITY and kong.response.get_header(ACTIVITY) == nil then\n    local id = kong.request.get_header(ACTIVITY)\n    if not id then\n      local r = math.random\n      id = string.format(\"%04x%04x-%04x-4%03x-%04x-%04x%04x%04x\", r(0, 65535), r(0, 65535), r(0, 65535),\n        r(0, 4095), r(32768, 49151), r(0, 65535), r(0, 65535), r(0, 65535))\n    end\n    kong.response.set_header(ACTIVITY, id)\n  end\nend\n\n-- An answer Kong made itself gets back the headers it had before the API's response policies ran. Not\n-- Content-Length: a policy that rewrites the body has dropped it, and the body may not be put back.\nlocal function restore_own_headers(before)\n  for name in pairs(kong.response.get_headers()) do\n    if before[name] == nil then kong.response.clear_header(name) end\n  end\n  for name, value in pairs(before) do\n    if name == \"content-length\" then\n      -- left as the policies left it\n    elseif type(value) == \"table\" then\n      kong.response.set_header(name, value[1])\n      for i = 2, #value do kong.response.add_header(name, value[i]) end\n    else\n      kong.response.set_header(name, value)\n    end\n  end\nend\n\nreturn function()\n  local shared = kong.ctx.shared\n  if shared.fs_wso2_own_headers then restore_own_headers(shared.fs_wso2_own_headers) end\n  -- Set, then cleared: nginx then adds no Server of its own either.\n  kong.response.set_header(\"Server\", \"-\")\n  kong.response.clear_header(\"Server\")\n\n  local reply = shared.fs_wso2_reply\n  if reply == \"method-not-allowed\" or reply == \"no-resource\" then\n    copy_request_headers(NOT_COPIED)\n    activity()\n    return\n  end\n  if reply == \"preflight\" then\n    copy_request_headers(NOT_COPIED_PREFLIGHT)\n  elseif kong.response.get_source() == \"exit\" then\n    local status = kong.response.get_status()\n    if status == 401 or status == 403 then\n      copy_request_headers(NOT_COPIED)\n      if status == 401 and AUTH_ERRORS then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.set_header(\"WWW-Authenticate\", CHALLENGE)\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_body = wso2_401()\n      end\n      if status == 403 and NOT_SUBSCRIBED then\n        kong.response.set_header(\"Content-Type\", \"application/json; charset=UTF-8\")\n        kong.response.clear_header(\"Content-Length\")\n        shared.fs_wso2_forbidden = wso2_403()\n      end\n    end\n  end\n  if CORS then cors() end\n  activity()\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-scope-check
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: pre-function
+    route: forgeshiftparityscopes-1-0-0--postpost
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 gateway behaviour (ForgeShift), before every other plugin. WSO2 answers a CORS preflight before it\n-- asks for any credential, and the caller's own values of the headers Kong's auth plugins set are kept\n-- here, to reach the backend as through WSO2.\nlocal PREFLIGHT = true\nlocal PATH_METHODS = { [\"POST\"] = true }\nlocal CALLER_HEADERS = { \"X-Consumer-ID\", \"X-Consumer-Custom-ID\", \"X-Consumer-Username\", \"X-Credential-Identifier\", \"X-Anonymous-Consumer\" }\nlocal NOT_ALLOWED = \"{\\\"code\\\":\\\"405\\\",\\\"type\\\":\\\"Status report\\\",\\\"message\\\":\\\"Runtime Error\\\",\\\"description\\\":\\\"Method not allowed for given API resource\\\"}\"\n\nreturn function()\n  local shared = kong.ctx.shared\n  local saved = {}\n  local headers = kong.request.get_headers()\n  for _, name in ipairs(CALLER_HEADERS) do\n    local value = headers[string.lower(name)]\n    if value ~= nil then saved[name] = value end\n  end\n  shared.fs_wso2_caller_headers = saved\n\n  -- An OPTIONS call on a path with no OPTIONS operation is a preflight when it names one of the path's\n  -- methods; anything else is WSO2's 405, without CORS headers.\n  if PREFLIGHT and kong.request.get_method() == \"OPTIONS\" and not PATH_METHODS.OPTIONS then\n    local wanted = kong.request.get_header(\"Access-Control-Request-Method\")\n    if wanted and PATH_METHODS[wanted] then\n      shared.fs_wso2_reply = \"preflight\"\n      return kong.response.exit(200)\n    end\n    shared.fs_wso2_reply = \"method-not-allowed\"\n    shared.fs_wso2_body = NOT_ALLOWED\n    return kong.response.exit(405, NOT_ALLOWED, { [\"Content-Type\"] = \"application/json; charset=UTF-8\" })\n  end\nend\n"
+      body_filter:
+        []
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), first on the response: the headers of an answer Kong makes itself,\n-- before the API's response policies, which WSO2 applies to its backend's answers only.\nreturn function()\n  local shared = kong.ctx.shared\n  local status = kong.response.get_status()\n  if shared.fs_wso2_reply or (kong.response.get_source() == \"exit\" and (status == 401 or status == 403)) then\n    shared.fs_wso2_own_headers = kong.response.get_headers()\n  end\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: request-transformer
+    route: forgeshiftparityscopes-1-0-0--getget
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      add:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+      append:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      http_method: null
+      remove:
+        body:
+          []
+        headers:
+          - Authorization
+          - X-Consumer-ID
+          - X-Consumer-Custom-ID
+          - X-Consumer-Username
+          - X-Credential-Identifier
+          - X-Anonymous-Consumer
+        querystring:
+          []
+      rename:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      replace:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+        uri: /get$(uri_captures.wso2_rest or "")
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: pre-function
+    route: forgeshiftparityscopes-1-0-0--wso2-unmatched
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 gateway behaviour (ForgeShift): a call under the API's context that none of its operations took.\n-- WSO2 answers 405 when an operation has that path and 404 when none does, before it asks for any\n-- credential.\nlocal PATHS = {\n  \"^/forgeshift\\\\-parity/scopes/1\\\\.0\\\\.0/get(?<wso2_rest>/)?$\",\n  \"^/forgeshift\\\\-parity/scopes/1\\\\.0\\\\.0/headers(?<wso2_rest>/)?$\",\n  \"^/forgeshift\\\\-parity/scopes/1\\\\.0\\\\.0/post(?<wso2_rest>/)?$\",\n}\nlocal NOT_ALLOWED = \"{\\\"code\\\":\\\"405\\\",\\\"type\\\":\\\"Status report\\\",\\\"message\\\":\\\"Runtime Error\\\",\\\"description\\\":\\\"Method not allowed for given API resource\\\"}\"\nlocal NO_RESOURCE = \"{\\\"code\\\":\\\"404\\\",\\\"type\\\":\\\"Status report\\\",\\\"message\\\":\\\"Runtime Error\\\",\\\"description\\\":\\\"No matching resource found for given API Request\\\"}\"\n\nreturn function()\n  local shared = kong.ctx.shared\n  local path = kong.request.get_path()\n  for _, pattern in ipairs(PATHS) do\n    if ngx.re.find(path, pattern, \"jo\") then\n      shared.fs_wso2_reply = \"method-not-allowed\"\n      shared.fs_wso2_body = NOT_ALLOWED\n      return kong.response.exit(405, NOT_ALLOWED, { [\"Content-Type\"] = \"application/json; charset=UTF-8\" })\n    end\n  end\n  shared.fs_wso2_reply = \"no-resource\"\n  shared.fs_wso2_body = NO_RESOURCE\n  return kong.response.exit(404, NO_RESOURCE, { [\"Content-Type\"] = \"application/json; charset=UTF-8\" })\nend\n"
+      body_filter:
+        []
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), first on the response: the headers of an answer Kong makes itself,\n-- before the API's response policies, which WSO2 applies to its backend's answers only.\nreturn function()\n  local shared = kong.ctx.shared\n  local status = kong.response.get_status()\n  if shared.fs_wso2_reply or (kong.response.get_source() == \"exit\" and (status == 401 or status == 403)) then\n    shared.fs_wso2_own_headers = kong.response.get_headers()\n  end\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: pre-function
+    route: forgeshiftparityscopes-1-0-0--getheaders
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 gateway behaviour (ForgeShift), before every other plugin. WSO2 answers a CORS preflight before it\n-- asks for any credential, and the caller's own values of the headers Kong's auth plugins set are kept\n-- here, to reach the backend as through WSO2.\nlocal PREFLIGHT = true\nlocal PATH_METHODS = { [\"GET\"] = true }\nlocal CALLER_HEADERS = { \"X-Consumer-ID\", \"X-Consumer-Custom-ID\", \"X-Consumer-Username\", \"X-Credential-Identifier\", \"X-Anonymous-Consumer\" }\nlocal NOT_ALLOWED = \"{\\\"code\\\":\\\"405\\\",\\\"type\\\":\\\"Status report\\\",\\\"message\\\":\\\"Runtime Error\\\",\\\"description\\\":\\\"Method not allowed for given API resource\\\"}\"\n\nreturn function()\n  local shared = kong.ctx.shared\n  local saved = {}\n  local headers = kong.request.get_headers()\n  for _, name in ipairs(CALLER_HEADERS) do\n    local value = headers[string.lower(name)]\n    if value ~= nil then saved[name] = value end\n  end\n  shared.fs_wso2_caller_headers = saved\n\n  -- An OPTIONS call on a path with no OPTIONS operation is a preflight when it names one of the path's\n  -- methods; anything else is WSO2's 405, without CORS headers.\n  if PREFLIGHT and kong.request.get_method() == \"OPTIONS\" and not PATH_METHODS.OPTIONS then\n    local wanted = kong.request.get_header(\"Access-Control-Request-Method\")\n    if wanted and PATH_METHODS[wanted] then\n      shared.fs_wso2_reply = \"preflight\"\n      return kong.response.exit(200)\n    end\n    shared.fs_wso2_reply = \"method-not-allowed\"\n    shared.fs_wso2_body = NOT_ALLOWED\n    return kong.response.exit(405, NOT_ALLOWED, { [\"Content-Type\"] = \"application/json; charset=UTF-8\" })\n  end\nend\n"
+      body_filter:
+        []
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), first on the response: the headers of an answer Kong makes itself,\n-- before the API's response policies, which WSO2 applies to its backend's answers only.\nreturn function()\n  local shared = kong.ctx.shared\n  local status = kong.response.get_status()\n  if shared.fs_wso2_reply or (kong.response.get_source() == \"exit\" and (status == 401 or status == 403)) then\n    shared.fs_wso2_own_headers = kong.response.get_headers()\n  end\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: pre-function
+    route: forgeshiftparityscopes-1-0-0--getget
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      access:
+        - "-- WSO2 gateway behaviour (ForgeShift), before every other plugin. WSO2 answers a CORS preflight before it\n-- asks for any credential, and the caller's own values of the headers Kong's auth plugins set are kept\n-- here, to reach the backend as through WSO2.\nlocal PREFLIGHT = true\nlocal PATH_METHODS = { [\"GET\"] = true }\nlocal CALLER_HEADERS = { \"X-Consumer-ID\", \"X-Consumer-Custom-ID\", \"X-Consumer-Username\", \"X-Credential-Identifier\", \"X-Anonymous-Consumer\" }\nlocal NOT_ALLOWED = \"{\\\"code\\\":\\\"405\\\",\\\"type\\\":\\\"Status report\\\",\\\"message\\\":\\\"Runtime Error\\\",\\\"description\\\":\\\"Method not allowed for given API resource\\\"}\"\n\nreturn function()\n  local shared = kong.ctx.shared\n  local saved = {}\n  local headers = kong.request.get_headers()\n  for _, name in ipairs(CALLER_HEADERS) do\n    local value = headers[string.lower(name)]\n    if value ~= nil then saved[name] = value end\n  end\n  shared.fs_wso2_caller_headers = saved\n\n  -- An OPTIONS call on a path with no OPTIONS operation is a preflight when it names one of the path's\n  -- methods; anything else is WSO2's 405, without CORS headers.\n  if PREFLIGHT and kong.request.get_method() == \"OPTIONS\" and not PATH_METHODS.OPTIONS then\n    local wanted = kong.request.get_header(\"Access-Control-Request-Method\")\n    if wanted and PATH_METHODS[wanted] then\n      shared.fs_wso2_reply = \"preflight\"\n      return kong.response.exit(200)\n    end\n    shared.fs_wso2_reply = \"method-not-allowed\"\n    shared.fs_wso2_body = NOT_ALLOWED\n    return kong.response.exit(405, NOT_ALLOWED, { [\"Content-Type\"] = \"application/json; charset=UTF-8\" })\n  end\nend\n"
+      body_filter:
+        []
+      certificate:
+        []
+      functions:
+        []
+      header_filter:
+        - "-- WSO2 gateway behaviour (ForgeShift), first on the response: the headers of an answer Kong makes itself,\n-- before the API's response policies, which WSO2 applies to its backend's answers only.\nreturn function()\n  local shared = kong.ctx.shared\n  local status = kong.response.get_status()\n  if shared.fs_wso2_reply or (kong.response.get_source() == \"exit\" and (status == 401 or status == 403)) then\n    shared.fs_wso2_own_headers = kong.response.get_headers()\n  end\nend\n"
+      log:
+        []
+      rewrite:
+        []
+      ws_client_frame:
+        []
+      ws_close:
+        []
+      ws_handshake:
+        []
+      ws_upstream_frame:
+        []
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - wso2-gateway-responses
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: acl
+    route: forgeshiftparityscopes-1-0-0--postpost
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      allow:
+        - wso2-api:58458116-2661-4c4e-ac83-498430e04320
+      allow_when: null
+      always_use_authenticated_groups: false
+      deny: null
+      deny_when: null
+      hide_groups_header: true
+      include_consumer_groups: false
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+  - name: request-transformer
+    route: forgeshiftparityscopes-1-0-0--postpost
+    enabled: true
+    protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    config:
+      add:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+      append:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      http_method: null
+      remove:
+        body:
+          []
+        headers:
+          - Authorization
+          - X-Consumer-ID
+          - X-Consumer-Custom-ID
+          - X-Consumer-Username
+          - X-Credential-Identifier
+          - X-Anonymous-Consumer
+        querystring:
+          []
+      rename:
+        body:
+          []
+        headers:
+          []
+        querystring:
+          []
+      replace:
+        body:
+          []
+        headers:
+          - User-Agent:Synapse-PT-HttpComponents-NIO
+        querystring:
+          []
+        uri: /post$(uri_captures.wso2_rest or "")
+    tags:
+      - wso2-source-id:58458116-2661-4c4e-ac83-498430e04320
+      - migrated-by:forgeshift-wso2-migrator
+      - forgeshift-parity
+      - proxyx-proxy-id:PX-FCBA3C82E9FB
+
+########################################################
+# UPSTREAMS + TARGETS
+########################################################
+
+upstreams:
+  []
